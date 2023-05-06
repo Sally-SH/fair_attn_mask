@@ -53,12 +53,19 @@ def main():
 
     parser.add_argument('--no_image', action='store_true',
             help='do not load image in dataloaders')
+    
+    parser.add_argument('--blackout', action='store_true')
+    parser.add_argument('--blackout_box', action='store_true')
+    parser.add_argument('--blackout_face', action='store_true')
+    parser.add_argument('--blur', action='store_true')
+    parser.add_argument('--grayscale', action='store_true')
+    parser.add_argument('--edges', action='store_true')
 
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--learning_rate', type=float, default=3e-2)
     parser.add_argument('--finetune', action='store_true')
     parser.add_argument('--num_epochs', type=int, default=20)
-    parser.add_argument('--batch_size', type=int, default=34)
+    parser.add_argument('--batch_size', type=int, default=32)
 
     parser.add_argument('--crop_size', type=int, default=224)
     parser.add_argument('--image_size', type=int, default=256)

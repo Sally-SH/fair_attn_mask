@@ -44,6 +44,13 @@ def main():
 
 	parser.add_argument('--no_image', action='store_true',
 			help='do not load image in dataloaders')
+        
+	parser.add_argument('--blackout', action='store_true')
+	parser.add_argument('--blackout_box', action='store_true')
+	parser.add_argument('--blackout_face', action='store_true')
+	parser.add_argument('--blur', action='store_true')
+	parser.add_argument('--grayscale', action='store_true')
+	parser.add_argument('--edges', action='store_true')
 
 	parser.add_argument('--learning_rate', type=float, default=3e-2)
 	parser.add_argument('--finetune', action='store_true')
@@ -99,11 +106,10 @@ def main():
 		best_performance = checkpoint['best_performance']
 		model.load_state_dict(checkpoint['state_dict'])
 		print("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
+		print("best performance : {}".format(best_performance))
 	else:
 		print("=> no checkpoint found at '{}'".format(args.save_dir))
 		return None
-
-	# test(model, val_loader)
 
 	visualize_att(model,val_loader.dataset)
 
@@ -142,10 +148,9 @@ def visualize_att(model,testdata):
         img = np.transpose(img,(1,2,0))
 
         flatten_mask = mask.reshape(-1)
-        print("mask_len {} / 20% {}".format(len(flatten_mask),int(0.9*len(flatten_mask))))
         flatten_mask = np.sort(flatten_mask)
+        # select the top 10% attention value
         mask_val = flatten_mask[int(0.9*len(flatten_mask))]
-        print("max {} / min {} / val {}".format(mask.max(), mask.min(), mask_val))
         
         heatmap = cv2.applyColorMap(np.uint8(225*mask), cv2.COLORMAP_JET)
         heatmap = np.float32(heatmap) / 255
@@ -154,6 +159,7 @@ def visualize_att(model,testdata):
         result = np.uint8(255*result)
 
         mask = mask[...,np.newaxis]
+        # mask top 10% attention area
         masked_img = np.where(np.repeat(mask, 3, axis=2)>mask_val, 0, img)
 
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(12, 12))
@@ -180,7 +186,6 @@ def test(model, val_loader):
 
 	t = tqdm(val_loader)
 	for batch_idx, (images, targets, genders, image_ids) in enumerate(t):
-		#if batch_idx == 100: break # constrain epoch size
 
 		# Set mini-batch dataset
 		images = images.cuda()
