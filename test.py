@@ -1,3 +1,4 @@
+from email.policy import default
 import math, os, random, json, pickle, sys, pdb
 import string, shutil, time, argparse
 import numpy as np
@@ -61,6 +62,12 @@ def main():
 	parser.add_argument('--image_size', type=int, default=256)
 	parser.add_argument('--start_epoch', type=int, default=1)
 	parser.add_argument('--seed', type=int, default=1)
+	parser.add_argument('--mask_mode', type=str, default='pixel',
+                     help='pixel or patch')
+	parser.add_argument('--patch_size', type=int, default=16,
+                     help='patch size')
+	parser.add_argument('--mask_ratio', type=int, default=10,
+                     help='Percentage to mask the image')
 
 	args = parser.parse_args()
 
@@ -86,7 +93,7 @@ def main():
 
 	# build the models
 	channel = 3
-	patch_size = 16
+	patch_size = args.patch_size
 	d_model = 64
 	n_layers = 12
 	n_head = 8
@@ -111,9 +118,9 @@ def main():
 		print("=> no checkpoint found at '{}'".format(args.save_dir))
 		return None
 
-	visualize_att(model,val_loader.dataset)
+	visualize_att(args, model,val_loader.dataset)
 
-def visualize_att(model,testdata):
+def visualize_att(args, model,testdata):
     denormalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],std=[1/0.229, 1/0.224, 1/0.225])
     idxs = np.random.choice(range(len(testdata)), 5, False)
     genders = ['male', 'female']
@@ -143,25 +150,38 @@ def visualize_att(model,testdata):
         v = joint_attentions[-1]
         grid_size = int(np.sqrt(aug_att_mat.size(-1)))
         mask = v[0, 1:].reshape(grid_size, grid_size).detach().numpy()
-        mask = cv2.resize(mask / mask.max(), (img.shape[2], img.shape[1]))
+
         img = denormalize(img)
         img = np.transpose(img,(1,2,0))
 
-        flatten_mask = mask.reshape(-1)
-        flatten_mask = np.sort(flatten_mask)
-        # select the top 10% attention value
-        mask_val = flatten_mask[int(0.9*len(flatten_mask))]
-        
+        if args.mask_mode == 'pixel':
+            mask = cv2.resize(mask / mask.max(), (img.shape[1], img.shape[0]))
+            flatten_mask = mask.reshape(-1)
+            flatten_mask = np.sort(flatten_mask)
+			# select the top mask_ratio% attention value
+            mask_val = flatten_mask[int((1-args.mask_ratio*0.01)*len(flatten_mask))]
+            mask = mask[...,np.newaxis]
+            # mask top mask_ratio% attention area
+            masked_img = np.where(np.repeat(mask, 3, axis=2)>mask_val, 0, img)
+        else:
+            mask = mask/mask.max()
+            flatten_mask = mask.reshape(-1)
+            flatten_mask = np.sort(flatten_mask)
+            # select the top mask_ratio% attention value
+            mask_val = flatten_mask[int((1-args.mask_ratio*0.01)*len(flatten_mask))]
+            mask = np.repeat(np.repeat(mask,args.patch_size,0),args.patch_size,1)
+            img_mask = np.where(mask > mask_val, 0, 1)
+            img_mask = img_mask[...,np.newaxis]
+            mask = mask[...,np.newaxis]
+            # mask top mask_ratio% attention area
+            masked_img = img*img_mask
+
         heatmap = cv2.applyColorMap(np.uint8(225*mask), cv2.COLORMAP_JET)
         heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
         heatmap = np.float32(heatmap) / 255
         result = heatmap + np.float32(img)
         result = result / np.max(result)
         result = np.uint8(255*result)
-
-        mask = mask[...,np.newaxis]
-        # mask top 10% attention area
-        masked_img = np.where(np.repeat(mask, 3, axis=2)>mask_val, 0, img)
 
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(12, 12))
 
