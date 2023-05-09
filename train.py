@@ -245,7 +245,6 @@ def test(args, epoch, model, criterion, val_loader, val_logger, logging=True):
     # set the eval mode
     model.eval()
     nProcessed = 0
-    nVal = len(val_loader.dataset) # number of images
     loss_logger = AverageMeter()
     preds_list, truth_list = [], []
 
