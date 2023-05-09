@@ -82,7 +82,7 @@ def main():
     # if os.path.exists(args.save_dir) and not args.resume:
     #     print('Path {} exists! and not resuming'.format(args.save_dir))
     #     return
-    # if not os.path.exists(args.save_dir): os.makedirs(args.save_dir)
+    if not os.path.exists(args.save_dir): os.makedirs(args.save_dir)
 
     # create log save directory for train and val
     args.log_dir = os.path.join('./logs', args.log_dir)
@@ -293,7 +293,7 @@ def test(args, epoch, model, criterion, val_loader, val_logger, logging=True):
 
 def visualize_att(model,testdata):
     denormalize = transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225],std=[1/0.229, 1/0.224, 1/0.225])
-    idxs = np.random.choice(range(len(testdata)), 10, False)
+    idxs = np.random.choice(range(len(testdata)), 5, False)
     for idx in idxs:
         img = testdata[idx][0]
         _, attentions = model(img.unsqueeze(0).cuda())
@@ -322,6 +322,7 @@ def visualize_att(model,testdata):
         img = np.transpose(img,(1,2,0))
         
         heatmap = cv2.applyColorMap(np.uint8(225*mask), cv2.COLORMAP_JET)
+        heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
         heatmap = np.float32(heatmap) / 255
         result = heatmap + np.float32(img)
         result = result / np.max(result)

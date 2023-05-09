@@ -99,9 +99,9 @@ def main():
 	model = model.cuda()
 	model.eval()
 
-	if os.path.isfile(os.path.join(args.save_dir, 'model_best.pth.tar')):
+	if os.path.isfile(os.path.join('./models', args.save_dir, 'model_best.pth.tar')):
 		print("=> loading checkpoint '{}'".format(args.save_dir))
-		checkpoint = torch.load(os.path.join(args.save_dir, 'model_best.pth.tar'))
+		checkpoint = torch.load(os.path.join('./models', args.save_dir, 'model_best.pth.tar'))
 		args.start_epoch = checkpoint['epoch']
 		best_performance = checkpoint['best_performance']
 		model.load_state_dict(checkpoint['state_dict'])
@@ -153,6 +153,7 @@ def visualize_att(model,testdata):
         mask_val = flatten_mask[int(0.9*len(flatten_mask))]
         
         heatmap = cv2.applyColorMap(np.uint8(225*mask), cv2.COLORMAP_JET)
+        heatmap = cv2.cvtColor(heatmap, cv2.COLOR_BGR2RGB)
         heatmap = np.float32(heatmap) / 255
         result = heatmap + np.float32(img)
         result = result / np.max(result)
