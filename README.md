@@ -29,3 +29,14 @@ python train.py --save_dir <path/to/save/model> --log_dir <path/to/log>
 ```
 python test.py --save_dir <path/to/saved/model>
 ```
+* Option
+  * Mask mode
+    * pixel
+    * patch
+    ```
+    python test.py --save_dir <path/to/saved/model> --mask_mode patch
+    ```
+  * mask ratio
+    ```
+    python test.py --save_dir <path/to/saved/model> --mask_ratio 10
+    ```
