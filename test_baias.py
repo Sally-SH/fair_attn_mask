@@ -15,7 +15,7 @@ import torchvision.transforms as transforms
 
 
 from data_loader import ImSituVerbGender
-from bias_only import VisionTransformer
+from model import VisionTransformer
 
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -56,7 +56,7 @@ def main():
 	parser.add_argument('--learning_rate', type=float, default=3e-2)
 	parser.add_argument('--finetune', action='store_true')
 	parser.add_argument('--num_epochs', type=int, default=20)
-	parser.add_argument('--batch_size', type=int, default=34)
+	parser.add_argument('--batch_size', type=int, default=32)
 
 	parser.add_argument('--crop_size', type=int, default=224)
 	parser.add_argument('--image_size', type=int, default=256)

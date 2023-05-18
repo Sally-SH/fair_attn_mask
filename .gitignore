@@ -161,3 +161,4 @@ cython_debug/
 
 #dataset
 data/of500_images_resized/
+logs/

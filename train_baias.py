@@ -17,7 +17,7 @@ import torch.optim as optim
 from pytorch_transformers.optimization import WarmupCosineSchedule
 
 from data_loader import ImSituVerbGender
-from bias_only import VisionTransformer
+from model import VisionTransformer
 from logger import Logger
 
 verb_id_map = pickle.load(open('./data/verb_id.map', 'rb'))
