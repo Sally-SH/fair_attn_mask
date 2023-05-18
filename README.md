@@ -22,21 +22,24 @@ pip install -r requirements.txt
 
 ## Train
 ```
-python train.py --save_dir <path/to/save/model> --log_dir <path/to/log>
+python train_baias.py --save_dir <path/to/save/model> --log_dir <path/to/log>
+python train_baias.py --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model>
 ```
 
 ## Test
 ```
-python test.py --save_dir <path/to/saved/model>
+python test_bias.py --save_dir <path/to/trained/bias/model>
 ```
-* Option
-  * Mask mode
-    * pixel
-    * patch
-    ```
-    python test.py --save_dir <path/to/saved/model> --mask_mode patch
-    ```
-  * mask ratio
-    ```
-    python test.py --save_dir <path/to/saved/model> --mask_ratio 10
-    ```
+## Option
+* Mask mode
+  * pixel
+  * patch
+  ```
+  python train_baias.py --mask_mode pixel --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model>
+  python test_bias.py --mask_mode patch --save_dir <path/to/trained/bias/model>
+  ```
+* Mask ratio
+  ```
+  python train_baias.py --mask_ratio 30 --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model>
+  python test_bias.py --mask_ratio 10 --save_dir <path/to/trained/bias/model>
+  ```
