@@ -244,30 +244,30 @@ def train(args, epoch, fair_model, mask_model, mask_criterion, orig_criterion, t
 
         # forward, Backward and Optimize
         mask_preds, _ = fair_model(masked_images)
-        # orig_preds, _ = fair_model(images.cuda())
+        orig_preds, _ = fair_model(images.cuda())
 
         # compute loss and add softmax to preds (crossentropy loss integrates softmax)
         mask_loss = mask_criterion(mask_preds, targets.max(1, keepdim=False)[1])
-        # orig_loss = orig_criterion(orig_preds, targets.max(1, keepdim=False)[1])
+        orig_loss = orig_criterion(orig_preds, targets.max(1, keepdim=False)[1])
         mask_para = 1
         orig_para = 1
-        loss = mask_para*mask_loss #+ orig_para*orig_loss
+        loss = mask_para*mask_loss + orig_para*orig_loss
         loss_logger.update(loss.item())
 
-        # orig_preds = F.softmax(orig_preds, dim=1)
-        # preds_max = orig_preds.max(1, keepdim=True)[1]
-        mask_preds = F.softmax(mask_preds, dim=1)
-        preds_max = mask_preds.max(1, keepdim=True)[1]
+        orig_preds = F.softmax(orig_preds, dim=1)
+        preds_max = orig_preds.max(1, keepdim=True)[1]
+        # mask_preds = F.softmax(mask_preds, dim=1)
+        # preds_max = mask_preds.max(1, keepdim=True)[1]
 
         # save the exact preds (binary)
         tensor = torch.tensor((), dtype=torch.float64)
-        # preds_exact = tensor.new_zeros(orig_preds.size())
-        preds_exact = tensor.new_zeros(mask_preds.size())
+        preds_exact = tensor.new_zeros(orig_preds.size())
+        # preds_exact = tensor.new_zeros(mask_preds.size())
         for idx, item in enumerate(preds_max):
             preds_exact[idx, item] = 1
         
-        # res.append((image_ids, orig_preds.detach().cpu(), targets.detach().cpu(), genders, preds_exact))
-        res.append((image_ids, mask_preds.detach().cpu(), targets.detach().cpu(), genders, preds_exact))
+        res.append((image_ids, orig_preds.detach().cpu(), targets.detach().cpu(), genders, preds_exact))
+        # res.append((image_ids, mask_preds.detach().cpu(), targets.detach().cpu(), genders, preds_exact))
 
         # backpropogation
         optimizer.zero_grad()
@@ -331,25 +331,25 @@ def test(args, epoch, fair_model, mask_model, mask_criterion, orig_criterion, va
 
         # forward, Backward and Optimize
         mask_preds, _ = fair_model(masked_images)
-        # orig_preds, _ = fair_model(images.cuda())
+        orig_preds, _ = fair_model(images.cuda())
 
         # compute loss and add softmax to preds (crossentropy loss integrates softmax)
         mask_loss = mask_criterion(mask_preds, targets.max(1, keepdim=False)[1])
-        # orig_loss = orig_criterion(orig_preds, targets.max(1, keepdim=False)[1])
+        orig_loss = orig_criterion(orig_preds, targets.max(1, keepdim=False)[1])
         mask_para = 1
         orig_para = 1
-        loss = mask_para*mask_loss #+ orig_para*orig_loss
+        loss = mask_para*mask_loss + orig_para*orig_loss
         loss_logger.update(loss.item())
 
-         # orig_preds = F.softmax(orig_preds, dim=1)
-        # preds_max = orig_preds.max(1, keepdim=True)[1]
-        mask_preds = F.softmax(mask_preds, dim=1)
-        preds_max = mask_preds.max(1, keepdim=True)[1]
+        orig_preds = F.softmax(orig_preds, dim=1)
+        preds_max = orig_preds.max(1, keepdim=True)[1]
+        # mask_preds = F.softmax(mask_preds, dim=1)
+        # preds_max = mask_preds.max(1, keepdim=True)[1]
 
         # save the exact preds (binary)
         tensor = torch.tensor((), dtype=torch.float64)
-        # preds_exact = tensor.new_zeros(orig_preds.size())
-        preds_exact = tensor.new_zeros(mask_preds.size())
+        preds_exact = tensor.new_zeros(orig_preds.size())
+        # preds_exact = tensor.new_zeros(mask_preds.size())
         for idx, item in enumerate(preds_max):
             preds_exact[idx, item] = 1
         
