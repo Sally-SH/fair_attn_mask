@@ -66,10 +66,10 @@ def main():
     parser.add_argument('--edges', action='store_true')
 
     parser.add_argument('--resume',action='store_true')
-    parser.add_argument('--learning_rate', type=float, default=3e-2)
+    parser.add_argument('--learning_rate', type=float, default=1e-5)
     parser.add_argument('--finetune', action='store_true')
     parser.add_argument('--num_epochs', type=int, default=20)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=16)
 
     parser.add_argument('--crop_size', type=int, default=224)
     parser.add_argument('--image_size', type=int, default=256)
@@ -78,7 +78,7 @@ def main():
 
     parser.add_argument('--mask_mode', type=str, default='pixel',
                      help='pixel or patch')
-    parser.add_argument('--patch_size', type=int, default=16,
+    parser.add_argument('--patch_size', type=int, default=32,
                      help='patch size')
     parser.add_argument('--mask_ratio', type=int, default=10,
                      help='Percentage to mask the image')
@@ -139,12 +139,12 @@ def main():
 
     # build the models
     channel = 3
-    patch_size = 16
-    d_model = 64
-    n_layers = 12
+    patch_size = 8
+    d_model = 512
+    n_layers = 6
     n_head = 8
-    ff_dim = 256
-    dropout_rate = 0.1
+    ff_dim = 2048
+    dropout_rate = 0.15
     mask_output_dim = 2
     fair_output_dim = args.num_verb
     img_size = (val_loader.dataset[0][0].shape[0], val_loader.dataset[0][0].shape[1])
@@ -156,8 +156,8 @@ def main():
     # build optimizer and scheduler
     optimizer = optim.SGD(fair_model.parameters(),args.learning_rate,0.9)
     scheduler = WarmupCosineSchedule(optimizer, args.num_epochs // 5, args.num_epochs)
-    mask_criterion = nn.CrossEntropyLoss(reduction='mean').cuda()
-    orig_criterion = nn.CrossEntropyLoss(reduction='mean').cuda()
+    mask_criterion = nn.CrossEntropyLoss(reduction='elementwise_mean').cuda()
+    orig_criterion = nn.CrossEntropyLoss(reduction='elementwise_mean').cuda()
 
     best_performance = 0
     if args.resume:
@@ -171,12 +171,12 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.save_dir))
 
-    args.mask_dir = os.path.join('./models', args.mask_dir)
-    if os.path.isfile(os.path.join(args.mask_dir, 'model_best.pth.tar')):
-        print("=> loading mask model '{}'".format(args.mask_dir))
-        checkpoint = torch.load(os.path.join(args.mask_dir, 'model_best.pth.tar'))
-        mask_model.load_state_dict(checkpoint['state_dict'])
-        mask_model.eval()
+    # args.mask_dir = os.path.join('./models', args.mask_dir)
+    # if os.path.isfile(os.path.join(args.mask_dir, 'model_best.pth.tar')):
+    #     print("=> loading mask model '{}'".format(args.mask_dir))
+    #     checkpoint = torch.load(os.path.join(args.mask_dir, 'model_best.pth.tar'))
+    #     mask_model.load_state_dict(checkpoint['state_dict'])
+    #     mask_model.eval()
         
         
     print('before training, evaluate the model')
@@ -238,26 +238,28 @@ def train(args, epoch, fair_model, mask_model, mask_criterion, orig_criterion, t
             genders = torch.index_select(genders, 0, selected_idx)
 
         # set mini-batch dataset
-        masked_images = mask_image(args, mask_model, images)
-        masked_images = masked_images.cuda()
+        # masked_images = mask_image(args, mask_model, images)
+        # masked_images = masked_images.cuda()
         targets = targets.cuda()
 
         # forward, Backward and Optimize
-        mask_preds, _ = fair_model(masked_images)
+        # mask_preds, _ = fair_model(masked_images)
         orig_preds, _ = fair_model(images.cuda())
 
         # compute loss and add softmax to preds (crossentropy loss integrates softmax)
-        mask_loss = mask_criterion(mask_preds, targets.max(1, keepdim=False)[1])
+        # mask_loss = mask_criterion(mask_preds, targets.max(1, keepdim=False)[1])
         orig_loss = orig_criterion(orig_preds, targets.max(1, keepdim=False)[1])
         mask_para = 1
         orig_para = 1
-        loss = mask_para*mask_loss + orig_para*orig_loss
+        # loss = mask_para*mask_loss + orig_para*orig_loss
+        loss = orig_loss
         loss_logger.update(loss.item())
 
         orig_preds = F.softmax(orig_preds, dim=1)
-        preds_max = orig_preds.max(1, keepdim=True)[1]
+        preds_max = orig_preds.max(1, keepdim=False)[1]
         # mask_preds = F.softmax(mask_preds, dim=1)
         # preds_max = mask_preds.max(1, keepdim=True)[1]
+        # print("orig pred max {}".format(preds_max))
 
         # save the exact preds (binary)
         tensor = torch.tensor((), dtype=torch.float64)
@@ -277,7 +279,7 @@ def train(args, epoch, fair_model, mask_model, mask_criterion, orig_criterion, t
         # Print log info
         nProcessed += len(images)
         t.set_postfix(loss = loss_logger.avg, completed = nProcessed)
-
+        
     # compute mean average precision score for verb classifier
     total_preds   = torch.cat([entry[1] for entry in res], 0)
     total_targets = torch.cat([entry[2] for entry in res], 0)
@@ -309,6 +311,10 @@ def train(args, epoch, fair_model, mask_model, mask_criterion, orig_criterion, t
     print('man size: {} woman size: {}'.format(len(man_idx), len(woman_idx)))
     print('Train epoch  : {}, task_f1_score, {:.2f} meanAP: {:.2f}, meanAP_man: {:.2f}, meanAP_woman: {:.2f}'.format( \
         epoch, task_f1_score, meanAP, meanAP_man, meanAP_woman))
+    for name, child in fair_model.named_children():
+            for param in child.parameters():
+                print(name, param)
+
 
 def test(args, epoch, fair_model, mask_model, mask_criterion, orig_criterion, val_loader, val_logger, logging=True):
 
@@ -325,26 +331,29 @@ def test(args, epoch, fair_model, mask_model, mask_criterion, orig_criterion, va
 
         # Set mini-batch dataset
         images = images.cuda()
-        masked_images = mask_image(args, mask_model, images)
-        masked_images = masked_images.cuda()
+        # masked_images = mask_image(args, mask_model, images)
+        # masked_images = masked_images.cuda()
         targets = targets.cuda()
 
         # forward, Backward and Optimize
-        mask_preds, _ = fair_model(masked_images)
+        # mask_preds, _ = fair_model(masked_images)
         orig_preds, _ = fair_model(images.cuda())
 
         # compute loss and add softmax to preds (crossentropy loss integrates softmax)
-        mask_loss = mask_criterion(mask_preds, targets.max(1, keepdim=False)[1])
+        # mask_loss = mask_criterion(mask_preds, targets.max(1, keepdim=False)[1])
         orig_loss = orig_criterion(orig_preds, targets.max(1, keepdim=False)[1])
         mask_para = 1
         orig_para = 1
-        loss = mask_para*mask_loss + orig_para*orig_loss
+        # loss = mask_para*mask_loss + orig_para*orig_loss
+        loss = orig_loss
         loss_logger.update(loss.item())
 
         orig_preds = F.softmax(orig_preds, dim=1)
-        preds_max = orig_preds.max(1, keepdim=True)[1]
+        preds_max = orig_preds.max(1, keepdim=False)[1]
         # mask_preds = F.softmax(mask_preds, dim=1)
         # preds_max = mask_preds.max(1, keepdim=True)[1]
+        print("orig pred max {}".format(preds_max))
+
 
         # save the exact preds (binary)
         tensor = torch.tensor((), dtype=torch.float64)
@@ -354,7 +363,7 @@ def test(args, epoch, fair_model, mask_model, mask_criterion, orig_criterion, va
             preds_exact[idx, item] = 1
         
         # res.append((image_ids, orig_preds.detach().cpu(), targets.detach().cpu(), genders, preds_exact))
-        res.append((image_ids, mask_preds.detach().cpu(), targets.detach().cpu(), genders, preds_exact))
+        res.append((image_ids, orig_preds.detach().cpu(), targets.detach().cpu(), genders, preds_exact))
 
         # Print log info
         nProcessed += len(images)
