@@ -23,7 +23,7 @@ pip install -r requirements.txt
   1. To download the CelebA dataset
   ```
   bash download.sh
-  '''
+  ```
   2. data dir
   ```
   .
