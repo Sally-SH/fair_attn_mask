@@ -46,24 +46,24 @@ pip install -r requirements.txt
 
 ## Train
 ```
-python train_baias.py --save_dir <path/to/save/model> --log_dir <path/to/log>
-python train_fair.py --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model>
+python train_baias.py --save_dir <path/to/save/model> --log_dir <path/to/log> --dataset <'imsitu' or 'celeba'>
+python train_fair.py --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model> -- dataset <'imsitu' or 'celeba'>
 ```
 
 ## Test
 ```
-python test_bias.py --save_dir <path/to/trained/bias/model>
+python test_bias.py --save_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
 ```
 ## Option
 * Mask mode
   * pixel
   * patch
   ```
-  python train_fair.py --mask_mode pixel --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model>
-  python test_bias.py --mask_mode patch --save_dir <path/to/trained/bias/model>
+  python train_fair.py --mask_mode pixel --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
+  python test_bias.py --mask_mode patch --save_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
   ```
 * Mask ratio
   ```
-  python train_fair.py --mask_ratio 30 --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model>
-  python test_bias.py --mask_ratio 10 --save_dir <path/to/trained/bias/model>
+  python train_fair.py --mask_ratio 30 --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
+  python test_bias.py --mask_ratio 10 --save_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
   ```
