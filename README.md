@@ -45,15 +45,24 @@ pip install -r requirements.txt
   ```
 
 ## Train
-```
-python train_baias.py --save_dir <path/to/save/model> --log_dir <path/to/log> --dataset <'imsitu' or 'celeba'>
-python train_fair.py --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model> -- dataset <'imsitu' or 'celeba'>
-```
+* Bias-only
+  ```
+  python train_baias.py --save_dir <path/to/save/model> --log_dir <path/to/log> --dataset <'imsitu' or 'celeba'>
+  ```
+* Fair
+  ```
+  python train_fair.py --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model> -- dataset <'imsitu' or 'celeba'>
+  ```
+* Vanilla
+  ```
+  python -m torch.distributed.launch --nproc_per_node=2 --use_env main.py --output_dir <path/to/save/model>
+  ```
 
 ## Test
-```
-python test_bias.py --save_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
-```
+* Bias-only
+  ```
+  python test_bias.py --save_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
+  ```
 ## Option
 * Mask mode
   * pixel
