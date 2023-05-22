@@ -24,7 +24,7 @@ class ImSituVerbGender(data.Dataset):
         self.transform = transform
         self.args = args
 
-        verb_id_map = pickle.load(open('./data/verb_id.map', 'rb'))
+        verb_id_map = pickle.load(open('./data_imsitu/verb_id.map', 'rb'))
         self.verb2id = verb_id_map['verb2id']
         self.id2verb = verb_id_map['id2verb']
 
@@ -32,17 +32,17 @@ class ImSituVerbGender(data.Dataset):
         self.ann_data = pickle.load(open(os.path.join(annotation_dir, split+".data"), 'rb'))
 
         if args.balanced and split == 'train':
-            balanced_subset = pickle.load(open("./data/{}_ratio_{}.ids".format(split, \
+            balanced_subset = pickle.load(open("./data_imsitu/{}_ratio_{}.ids".format(split, \
                 args.ratio), 'rb'))
             self.ann_data = [self.ann_data[i] for i in balanced_subset]
 
         if balanced_val and split == 'val':
-            balanced_subset = pickle.load(open("./data/{}_ratio_{}.ids".format(split, \
+            balanced_subset = pickle.load(open("./data_imsitu/{}_ratio_{}.ids".format(split, \
                 args.ratio), 'rb'))
             self.ann_data = [self.ann_data[i] for i in balanced_subset]
 
         if balanced_test and split == 'test':
-            balanced_subset = pickle.load(open("./data/{}_ratio_{}.ids".format(split, \
+            balanced_subset = pickle.load(open("./data_imsitu/{}_ratio_{}.ids".format(split, \
                 args.ratio), 'rb'))
             self.ann_data = [self.ann_data[i] for i in balanced_subset]
 
@@ -200,7 +200,7 @@ class CelebA(data.Dataset):
         
         self.preprocess()
 
-        if mode == 'Train':
+        if mode == 'train':
             self.num_images = len(self.train_dataset)
         else:
             self.num_images = len(self.test_dataset)
@@ -216,7 +216,7 @@ class CelebA(data.Dataset):
         lines = lines[2:]
         random.seed(1234)
         random.shuffle(lines)
-        num_val = int(len(lines) * self.train_val_split)
+        num_train = int(len(lines) * self.train_val_split)
         for i, line in enumerate(lines):
             split = line.split()
             filename = split[0]
@@ -227,7 +227,7 @@ class CelebA(data.Dataset):
                 idx = self.attr2idx[attr_name]
                 label.append(values[idx] == '1')
 
-            if (i+1) < num_val:#20259: #2000:
+            if (i+1) < num_train: # 90% of data
                 self.train_dataset.append([filename, label])
             else:
                 self.test_dataset.append([filename, label])
