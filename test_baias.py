@@ -106,9 +106,9 @@ def main():
 	model = model.cuda()
 	model.eval()
 
-	if os.path.isfile(os.path.join('./models', args.save_dir, 'model_best.pth.tar')):
+	if os.path.isfile(os.path.join('./checkpoints', args.save_dir, 'model_best.pth.tar')):
 		print("=> loading checkpoint '{}'".format(args.save_dir))
-		checkpoint = torch.load(os.path.join('./models', args.save_dir, 'model_best.pth.tar'))
+		checkpoint = torch.load(os.path.join('./checkpoints', args.save_dir, 'model_best.pth.tar'))
 		args.start_epoch = checkpoint['epoch']
 		best_performance = checkpoint['best_performance']
 		model.load_state_dict(checkpoint['state_dict'])

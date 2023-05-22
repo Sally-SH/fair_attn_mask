@@ -78,7 +78,7 @@ def main():
     torch.cuda.manual_seed(args.seed)
 
     # create model save directory
-    args.save_dir = os.path.join('./models', args.save_dir)
+    args.save_dir = os.path.join('./checkpoints', args.save_dir)
     # if os.path.exists(args.save_dir) and not args.resume:
     #     print('Path {} exists! and not resuming'.format(args.save_dir))
     #     return
