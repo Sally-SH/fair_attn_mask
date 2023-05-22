@@ -152,10 +152,10 @@ def main():
     else: # CelebA
         train_loader = get_loader(args.image_dir, args.annotation_dir, args.target_att,
                                    args.crop_size, args.image_size, args.batch_size,
-                                   'CelebA', 'Train', args.train_val_split, num_workers=6) # 20261 images
+                                   'CelebA', 'train', args.train_val_split, num_workers=6) # 20261 images
         val_loader = get_loader(args.image_dir, args.annotation_dir, args.target_att,
                                    args.crop_size, args.image_size, args.batch_size,
-                                   'CelebA', 'Test', args.train_val_split, num_workers=4) # 182338
+                                   'CelebA', 'val', args.train_val_split, num_workers=4) # 182338
         test = test_celeba
         train = train_celeba
 
@@ -360,6 +360,7 @@ def train_celeba(args, epoch, model, criterion, train_loader, optimizer, schedul
         zero = torch.zeros(genders.size(0), 2).cuda()
         genders = zero.scatter_(1, genders.view(genders.size(0),1).long(), 1)
         # one hot encoded target
+        zero = torch.zeros(targets.size(0), 2).cuda()
         targets = zero.scatter_(1, targets.view(targets.size(0),1).long(), 1)
 
         # forward, Backward and Optimize
@@ -423,6 +424,7 @@ def test_celeba(args, epoch, model, criterion, val_loader, val_logger, logging=T
         zero = torch.zeros(genders.size(0), 2).cuda()
         genders = zero.scatter_(1, genders.view(genders.size(0),1).long(), 1)
         # one hot encoded target
+        zero = torch.zeros(targets.size(0), 2).cuda()
         targets = zero.scatter_(1, targets.view(targets.size(0),1).long(), 1)
 
         # Forward, Backward and Optimize
