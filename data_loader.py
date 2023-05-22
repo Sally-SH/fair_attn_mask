@@ -228,9 +228,9 @@ class CelebA(data.Dataset):
                 label.append(values[idx] == '1')
 
             if (i+1) < num_val:#20259: #2000:
-                self.test_dataset.append([filename, label])
-            else:
                 self.train_dataset.append([filename, label])
+            else:
+                self.test_dataset.append([filename, label])
 
         print('Finished preprocessing the CelebA dataset...')
 
