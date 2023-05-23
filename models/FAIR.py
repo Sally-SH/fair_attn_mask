@@ -141,12 +141,11 @@ def build(args):
                   transformer)
     criterion = None
 
-    if not args.inference:
-        weight_dict = {'loss_vce': args.verb_loss_coef}
+    weight_dict = {'loss_vce': args.verb_loss_coef}
     
-        if not args.test:
-            criterion = ImSituCriterion(weight_dict=weight_dict)
-        else:
-            criterion = ImSituCriterion(weight_dict=weight_dict)
+    if not args.test:
+        criterion = ImSituCriterion(weight_dict=weight_dict)
+    else:
+        criterion = ImSituCriterion(weight_dict=weight_dict)
 
     return model, criterion
