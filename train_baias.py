@@ -18,7 +18,7 @@ from pytorch_transformers.optimization import WarmupCosineSchedule
 
 from data_loader import ImSituVerbGender
 from model import VisionTransformer
-from logger import Logger
+# from logger import Logger
 
 verb_id_map = pickle.load(open('./data/verb_id.map', 'rb'))
 verb2id = verb_id_map['verb2id']
@@ -90,8 +90,8 @@ def main():
     val_log_dir = os.path.join(args.log_dir, 'val')
     if not os.path.exists(train_log_dir): os.makedirs(train_log_dir)
     if not os.path.exists(val_log_dir): os.makedirs(val_log_dir)
-    train_logger = Logger(train_log_dir)
-    val_logger = Logger(val_log_dir)
+    # train_logger = Logger(train_log_dir)
+    # val_logger = Logger(val_log_dir)
 
     #save all hyper-parameters for training
     with open(os.path.join(args.log_dir, "arguments.txt"), "a") as f:
@@ -135,7 +135,8 @@ def main():
     ff_dim = 256
     dropout_rate = 0.1
     output_dim = 2
-    img_size = (val_loader.dataset[0][0].shape[0], val_loader.dataset[0][0].shape[1])
+    img_size = (val_loader.dataset[0][0].shape[1], val_loader.dataset[0][0].shape[2])
+    print("img_size {}",img_size)
     model = VisionTransformer(channel, img_size, patch_size, d_model, n_layers, n_head, ff_dim, dropout_rate, output_dim)
     model = model.cuda()
 
@@ -157,13 +158,11 @@ def main():
             print("=> no checkpoint found at '{}'".format(args.save_dir))
 
     print('before training, evaluate the model')
-    test(args, 0, model, criterion, val_loader, val_logger, logging=False)
+    test(args, 0, model, criterion, val_loader)
 
     for epoch in range(args.start_epoch, args.num_epochs + 1):
-        train(args, epoch, model, criterion, train_loader, optimizer, scheduler,\
-                train_logger, logging = True)
-        current_performance = test(args, epoch, model, criterion, val_loader, \
-                val_logger, logging = True)
+        train(args, epoch, model, criterion, train_loader, optimizer, scheduler)
+        current_performance = test(args, epoch, model, criterion, val_loader)
         is_best = current_performance > best_performance
         best_performance = max(current_performance, best_performance)
         model_state = {
@@ -186,8 +185,7 @@ def save_checkpoint(args, state, is_best, filename):
         shutil.copyfile(filename, os.path.join(args.save_dir, 'model_best.pth.tar'))
 
 
-def train(args, epoch, model, criterion, train_loader, optimizer, scheduler,\
-    train_logger, logging=True):
+def train(args, epoch, model, criterion, train_loader, optimizer, scheduler):
     model.train()
     nProcessed = 0
     nTrain = len(train_loader.dataset) # number of images
@@ -232,15 +230,10 @@ def train(args, epoch, model, criterion, train_loader, optimizer, scheduler,\
 
     scheduler.step()
 
-    if logging:
-        train_logger.scalar_summary('loss', loss_logger.avg, epoch)
-        train_logger.scalar_summary('acc', acc, epoch)
-        train_logger.scalar_summary('lr', scheduler.get_last_lr()[0], epoch)
-
     print('man size: {} woman size: {}'.format(len(man_idx), len(woman_idx)))
     print('Train epoch  : {}, acc: {:.2f}'.format(epoch, acc))
 
-def test(args, epoch, model, criterion, val_loader, val_logger, logging=True):
+def test(args, epoch, model, criterion, val_loader):
 
     # set the eval mode
     model.eval()
@@ -279,11 +272,6 @@ def test(args, epoch, model, criterion, val_loader, val_logger, logging=True):
     man_idx = total_genders[:, 0].nonzero().squeeze()
     woman_idx = total_genders[:, 1].nonzero().squeeze()
     acc = accuracy_score(truth_list, preds_list)
-
-    if logging:
-        val_logger.scalar_summary('loss', loss_logger.avg, epoch)
-        val_logger.scalar_summary('acc', acc, epoch)
-
 
     print('man size: {} woman size: {}'.format(len(man_idx), len(woman_idx)))
     print('Val epoch  : {}, acc: {:.2f}'.format(epoch, acc))

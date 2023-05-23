@@ -100,8 +100,7 @@ def main():
 	ff_dim = 256
 	dropout_rate = 0.1
 	output_dim = 2
-	img_size = (val_loader.dataset[0][0].shape[0], val_loader.dataset[0][0].shape[1])
-
+	img_size = (val_loader.dataset[0][0].shape[1], val_loader.dataset[0][0].shape[2])
 	model = VisionTransformer(channel, img_size, patch_size, d_model, n_layers, n_head, ff_dim, dropout_rate, output_dim)
 	model = model.cuda()
 	model.eval()

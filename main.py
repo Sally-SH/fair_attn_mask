@@ -53,7 +53,8 @@ def get_args_parser():
                         help="Number of attention heads inside the transformer's attentions")
     parser.add_argument('--num_verb', type=int, default = 211)
     # Loss coefficients
-    parser.add_argument('--verb_loss_coef', default=1, type=float)
+    parser.add_argument('--img_loss_coef', default=1, type=float)
+    parser.add_argument('--mask_loss_coef', default=0, type=float)
 
     # Dataset parameters
     parser.add_argument('--annotation_dir', type=str,

@@ -206,10 +206,10 @@ class VisionTransformer(nn.Module):
         self.encoder = Encoder(d_model, n_layers, n_head, ff_dim, dropout_ratio)
         self.layerNorm = nn.LayerNorm(d_model)
         self.linear = nn.Linear(d_model, output_dim)
-        self.classifier = nn.Sequential(nn.Linear(d_model, d_model*2),
-                                             nn.ReLU(),
-                                             nn.Dropout(0.3),
-                                             nn.Linear(d_model*2, output_dim))
+        # self.classifier = nn.Sequential(nn.Linear(d_model, d_model*2),
+        #                                      nn.ReLU(),
+        #                                      nn.Dropout(0.3),
+        #                                      nn.Linear(d_model*2, output_dim))
         
         self._reset_parameters()
         
@@ -220,7 +220,6 @@ class VisionTransformer(nn.Module):
 
     def forward(self, src):    
         # src: [batch_size, src_len]
-        # import pdb;pdb.set_trace()
         src = self.encEmbedding(src)
         enc_src, attentions = self.encoder(src)
         # enc_src: [batch_size, src_len, d_model]
@@ -228,8 +227,7 @@ class VisionTransformer(nn.Module):
         cls_token = enc_src[:,0,:] # cls token
         # cls_token: [batch_size, d_model]
         cls_token = self.layerNorm(cls_token)
-        # output = self.linear(cls_token)
-        output = self.classifier(cls_token)
+        output = self.linear(cls_token)
         # output: [batch_size, output_dim]
 
         return output, attentions

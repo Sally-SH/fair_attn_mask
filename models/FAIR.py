@@ -98,11 +98,11 @@ class ImSituCriterion(nn.Module):
         """
         super().__init__()
         self.weight_dict = weight_dict
-        self.loss_function = LabelSmoothing(0.2)
-        self.loss_function_verb = LabelSmoothing(0.3)
+        self.loss_function_img = LabelSmoothing(0.3)
+        self.loss_function_mask = LabelSmoothing(0.3)
 
 
-    def forward(self, outputs, targets, eval=False):
+    def forward(self, targets, img_outputs, mask_outputs, eval=False):
         """ This performs the loss computation, and evaluation of GSRTR.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
@@ -110,15 +110,19 @@ class ImSituCriterion(nn.Module):
                       The expected keys in each dict depends on the losses applied, see each loss' doc
              eval: boolean, used in evlauation
         """
-        # top-1 & top 5 verb acc and calculate verb loss 
-        verb_pred_logits = outputs.squeeze(1)
-        gt_verbs = targets.max(1, keepdim=False)[1]
-        verb_acc_topk = accuracy(verb_pred_logits, gt_verbs, topk=(1, 5))
-        verb_loss = self.loss_function_verb(verb_pred_logits, gt_verbs)
-
+        # top-1 & top 5 verb acc and calculate verb loss
         out = {}
+        verb_acc_topk = [0,0]
         # losses 
-        out['loss_vce'] = verb_loss
+        gt_verbs = targets.max(1, keepdim=False)[1]
+        img_verb_pred_logits = img_outputs.squeeze(1)
+        verb_acc_topk = accuracy(img_verb_pred_logits, gt_verbs, topk=(1, 5))
+        img_verb_loss = self.loss_function_img(img_verb_pred_logits, gt_verbs)
+        out['loss_img'] = img_verb_loss
+        
+        mask_verb_pred_logits = mask_outputs.squeeze(1)
+        mask_verb_loss = self.loss_function_mask(mask_verb_pred_logits, gt_verbs)
+        out['loss_mask'] = mask_verb_loss
 
         # All metrics should be calculated per verb and averaged across verbs.
         ## In the dev and test split of SWiG dataset, there are 50 images for each verb (same number of images per verb).
@@ -141,7 +145,7 @@ def build(args):
                   transformer)
     criterion = None
 
-    weight_dict = {'loss_vce': args.verb_loss_coef}
+    weight_dict = {'loss_img': args.img_loss_coef, 'loss_mask': args.mask_loss_coef}
     
     if not args.test:
         criterion = ImSituCriterion(weight_dict=weight_dict)
