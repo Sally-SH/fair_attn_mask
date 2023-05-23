@@ -20,6 +20,10 @@ from model import VisionTransformer
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
+verb_id_map = pickle.load(open('./data/verb_id.map', 'rb'))
+verb2id = verb_id_map['verb2id']
+id2verb = verb_id_map['id2verb']
+
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--save_dir', type=str,
@@ -125,6 +129,7 @@ def visualize_att(args, model,testdata):
     genders = ['male', 'female']
     for idx in idxs:
         img = testdata[idx][0]
+        verb = np.argmax(testdata[idx][1].cpu().detach().numpy())
         label = np.argmax(testdata[idx][2].cpu().detach().numpy())
         pred, attentions = model(img.unsqueeze(0).cuda())
         pred = np.argmax(F.softmax(pred, dim=1).cpu().detach().numpy(), axis=1)[0]
@@ -183,6 +188,7 @@ def visualize_att(args, model,testdata):
         result = np.uint8(255*result)
 
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(ncols=4, figsize=(12, 12))
+        plt.suptitle(id2verb[verb],fontsize=16)
 
         ax1.set_title('Original')
         ax2.set_title('Attention Mask')
