@@ -17,12 +17,14 @@ import numpy as np
 import torch
 import util.misc as utils
 from torch.utils.data import DataLoader, DistributedSampler
-from engine import evaluate_swig, train_one_epoch
+from engine import evaluate_fair_only_mask, train_one_epoch_only_mask
 from models import build_model
 from pathlib import Path
 from data_loader import ImSituVerbGender
 import torchvision.transforms as transforms
+from model import VisionTransformer
 
+torch.autograd.set_detect_anomaly(True)
 def get_args_parser():
     parser = argparse.ArgumentParser('Set grounded situation recognition transformer', add_help=False)
     parser.add_argument('--lr', default=1e-4, type=float)
@@ -54,7 +56,7 @@ def get_args_parser():
     parser.add_argument('--num_verb', type=int, default = 211)
     # Loss coefficients
     parser.add_argument('--img_loss_coef', default=1, type=float)
-    parser.add_argument('--mask_loss_coef', default=0, type=float)
+    parser.add_argument('--mask_loss_coef', default=1, type=float)
 
     # Dataset parameters
     parser.add_argument('--annotation_dir', type=str,
@@ -86,7 +88,7 @@ def get_args_parser():
     parser.add_argument('--resume',action='store_true')
     parser.add_argument('--test', default=False, action='store_true')
     parser.add_argument('--inference', default=False)
-    parser.add_argument('--output_dir', default='',
+    parser.add_argument('--output_dir', default='only_mask',
                         help='path where to save, empty for no saving')
     parser.add_argument('--log_dir', type=str,help='path for saving log files')
     parser.add_argument('--device', default='cuda', 
@@ -95,9 +97,18 @@ def get_args_parser():
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     parser.add_argument('--num_workers', default=4, type=int)
-    parser.add_argument('--saved_model', default='vanila/checkpoint.pth',
+    parser.add_argument('--saved_model', default='gsrtr_checkpoint.pth',
                         help='path where saved model is')
+    parser.add_argument('--mask_dir', default='bias', type=str,
+            help='path to bias model')
     parser.add_argument('--fair', default=False)
+    
+    parser.add_argument('--mask_mode', type=str, default='pixel',
+                     help='pixel or patch')
+    parser.add_argument('--patch_size', type=int, default=16,
+                     help='patch size')
+    parser.add_argument('--mask_ratio', type=int, default=5,
+                     help='Percentage to mask the image')
 
     # Distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,
@@ -146,6 +157,28 @@ def main(args):
     model, criterion = build_model(args)
     model.to(device)
     model_without_ddp = model
+
+    channel = 3
+    patch_size = args.patch_size
+    d_model = 64
+    n_layers = 12
+    n_head = 8
+    ff_dim = 256
+    dropout_rate = 0.1
+    output_dim = 2
+    img_size = (args.crop_size, args.crop_size)
+    mask_model = VisionTransformer(channel, img_size, patch_size, d_model, n_layers, n_head, ff_dim, dropout_rate, output_dim)
+    mask_model = mask_model.to(device)
+
+    if os.path.isfile(os.path.join('./checkpoints', args.mask_dir, 'model_best.pth.tar')):
+        print("=> loading checkpoint '{}'".format(args.mask_dir))
+        checkpoint = torch.load(os.path.join('./checkpoints', args.mask_dir, 'model_best.pth.tar'))
+        mask_model.load_state_dict(checkpoint['state_dict'])
+        mask_model.eval()
+    else:
+        print("=> no checkpoint found at '{}'".format(args.mask_dir))
+        return None
+
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
         model_without_ddp = model.module
@@ -177,13 +210,10 @@ def main(args):
     output_dir = Path(args.output_dir)
     # dataset loader
     batch_sampler_train = torch.utils.data.BatchSampler(sampler_train, args.batch_size, drop_last=True)
-    # batch_sampler_val = torch.utils.data.BatchSampler(sampler_val, args.batch_size, drop_last=True)
     data_loader_train = DataLoader(train_data, num_workers=args.num_workers,
                                 batch_sampler=batch_sampler_train,pin_memory = True)
-    # data_loader_val = DataLoader(val_data, num_workers=args.num_workers,
-    #                             drop_last=False, sampler=batch_sampler_val, pin_memory = True)
-    data_loader_val = DataLoader(val_data, batch_size = args.batch_size, \
-            shuffle = False, num_workers = 4,pin_memory = True)
+    data_loader_val = DataLoader(val_data, num_workers=args.num_workers,
+                                drop_last=False, sampler=sampler_val, pin_memory = True)
 
     
     # use saved model for evaluation (using dev set or test set)
@@ -192,7 +222,7 @@ def main(args):
         model.load_state_dict(checkpoint['model'])
         data_loader = data_loader_val
 
-        test_stats = evaluate_swig(model, criterion, data_loader, device, args.output_dir)
+        test_stats = evaluate_fair_only_mask(model, criterion, data_loader, device, args.output_dir)
         log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}}
 
         # write log
@@ -210,12 +240,12 @@ def main(args):
         # train one epoch
         if args.distributed:
             sampler_train.set_epoch(epoch)
-        train_stats = train_one_epoch(model, criterion, data_loader_train, optimizer, 
+        train_stats = train_one_epoch_only_mask(args, mask_model, model, criterion, data_loader_train, optimizer, 
                                       device, epoch, args.clip_max_norm)
         lr_scheduler.step()
 
         # evaluate
-        test_stats = evaluate_swig(model, criterion, data_loader_val, device, args.output_dir)
+        test_stats = evaluate_fair_only_mask(args, mask_model, model, criterion, data_loader_val, device, args.output_dir)
 
         # log & output
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},

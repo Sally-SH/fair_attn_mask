@@ -93,7 +93,9 @@ def main():
     parser.add_argument('--num_verb', type=int, default = 211)
 
     # Loss coefficients
-    parser.add_argument('--verb_loss_coef', default=1, type=float)
+    parser.add_argument('--img_loss_coef', default=1, type=float)
+    parser.add_argument('--mask_loss_coef', default=0, type=float)
+
 
     # Dataset parameters
     parser.add_argument('--annotation_dir', type=str,
@@ -143,6 +145,7 @@ def main():
                         help='path where to save, empty for no saving')
     parser.add_argument('--test', default=False, action='store_true')
     parser.add_argument('--inference', default=True)
+    parser.add_argument('--fair', default=False)
 
     
     # Distributed training parameters

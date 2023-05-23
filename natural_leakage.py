@@ -57,7 +57,7 @@ def main():
     parser.add_argument('--hid_size', type=int,
                 default = 300)
 
-    parser.add_argument('--num_epochs', type=int, default=150)
+    parser.add_argument('--num_epochs', type=int, default=100)
     parser.add_argument('--learning_rate', type=float, default=0.00005)
     parser.add_argument('--print_every', type=int, default=500)
 

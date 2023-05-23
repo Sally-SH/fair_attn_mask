@@ -23,9 +23,14 @@ import datetime
 import pickle
 import torch
 import torch.distributed as dist
+import numpy as np
+import torch.nn.functional as F
 from torch import Tensor
 from collections import defaultdict, deque
 from typing import Optional, List
+from sklearn.metrics import average_precision_score, f1_score
+
+import pdb
 
 
 class SmoothedValue(object):
@@ -416,3 +421,43 @@ def accuracy(output, target, topk=(1,)):
     return res
 
 
+@torch.no_grad()
+def map_f1(outputs, targets):
+    """ This performs the loss computation, and evaluation of GSRTR.
+    Parameters:
+        outputs: dict of tensors, see the output specification of the model for the format
+        targets: list of dicts, such that len(targets) == batch_size.
+                The expected keys in each dict depends on the losses applied, see each loss' doc
+    """
+    # outputs : [16, 211]
+    # targets : [16, 211]
+    # pdb.set_trace()
+    verb_pred_logits = outputs.squeeze(1) # [16, 211]
+    verb_pred_logits = F.softmax(verb_pred_logits, dim=1)
+    verb_pred_logits = verb_pred_logits.max(1, keepdim=False)[1] # [16]
+    # make one hot
+    zero = torch.zeros(verb_pred_logits.size(0), 211).cuda()
+    verb_pred_logits = zero.scatter_(1, verb_pred_logits.view(verb_pred_logits.size(0),1).long(), 1)
+
+    ap = []
+    f1 = []
+    
+    for i in range(211):
+        pred = verb_pred_logits[:,i]
+        gt = targets[:,i]
+        ap.append(average_precision_score(gt.cpu(), pred.cpu()))
+        f1.append(f1_score(gt.cpu(), pred.cpu()))
+    mask_ap = np.isnan(ap)
+    mask_f1 = np.isnan(f1)
+    ap = np.array(ap)
+    ap = ap[~mask_ap]
+    f1 = np.array(f1)
+    f1 = f1[~mask_f1]
+
+    # print("=============================")
+    # print("=============================")
+    # print("ap : {},  f1 : {}".format(ap,f1))
+    mean_ap = sum(ap)/len(ap)
+    f1score = sum(f1)/len(f1)
+
+    return mean_ap, f1score

@@ -13,7 +13,7 @@ GSRTR model and criterion classes.
 import torch
 import torch.nn.functional as F
 from torch import nn
-from util.misc import (NestedTensor, nested_tensor_from_tensor_list, accuracy)
+from util.misc import (NestedTensor, nested_tensor_from_tensor_list, accuracy, map_f1)
 from .backbone import build_backbone
 from .transformer import build_transformer
 
@@ -134,6 +134,56 @@ class ImSituCriterion(nn.Module):
         out['verb_acc_top5'] = verb_acc_topk[1]
         out['mean_acc'] = torch.stack([v for k, v in out.items() if 'verb_acc' in k]).mean()
 
+        mean_ap, f1score = map_f1(img_outputs,targets)
+        out['mean_ap'] = mean_ap
+        out['f1_score'] = f1score
+        return out
+    
+class VanillaImSituCriterion(nn.Module):
+    """ 
+    Loss for GSRTR with SWiG dataset, and GSRTR evaluation.
+    """
+    def __init__(self, weight_dict):
+        """ 
+        Create the criterion.
+        """
+        super().__init__()
+        self.weight_dict = weight_dict
+        self.loss_function_img = LabelSmoothing(0.3)
+        self.loss_function_mask = LabelSmoothing(0.3)
+
+
+    def forward(self, targets, img_outputs, eval=False):
+        """ This performs the loss computation, and evaluation of GSRTR.
+        Parameters:
+             outputs: dict of tensors, see the output specification of the model for the format
+             targets: list of dicts, such that len(targets) == batch_size.
+                      The expected keys in each dict depends on the losses applied, see each loss' doc
+             eval: boolean, used in evlauation
+        """
+        # top-1 & top 5 verb acc and calculate verb loss
+        out = {}
+        verb_acc_topk = [0,0]
+        # losses 
+        gt_verbs = targets.max(1, keepdim=False)[1]
+        img_verb_pred_logits = img_outputs.squeeze(1)
+        verb_acc_topk = accuracy(img_verb_pred_logits, gt_verbs, topk=(1, 5))
+        img_verb_loss = self.loss_function_img(img_verb_pred_logits, gt_verbs)
+        out['loss_img'] = img_verb_loss
+
+        # All metrics should be calculated per verb and averaged across verbs.
+        ## In the dev and test split of SWiG dataset, there are 50 images for each verb (same number of images per verb).
+        ### Our implementation is correct to calculate metrics for the dev and test split of SWiG dataset. 
+        ### We calculate metrics in this way for simple implementation in distributed data parallel setting. 
+
+        # accuracies (for verb and noun)
+        out['verb_acc_top1'] = verb_acc_topk[0]
+        out['verb_acc_top5'] = verb_acc_topk[1]
+        out['mean_acc'] = torch.stack([v for k, v in out.items() if 'verb_acc' in k]).mean()
+
+        # mean_ap, f1score = map_f1(img_outputs,targets)
+        # out['mean_ap'] = mean_ap
+        # out['f1_score'] = f1score
         return out
 
 
@@ -144,12 +194,12 @@ def build(args):
     model = FAIR(backbone,
                   transformer)
     criterion = None
-
-    weight_dict = {'loss_img': args.img_loss_coef, 'loss_mask': args.mask_loss_coef}
     
-    if not args.test:
+    if args.fair:
+        weight_dict = {'loss_img': args.img_loss_coef, 'loss_mask': args.mask_loss_coef}
         criterion = ImSituCriterion(weight_dict=weight_dict)
     else:
-        criterion = ImSituCriterion(weight_dict=weight_dict)
+        weight_dict = {'loss_img': args.img_loss_coef}
+        criterion = VanillaImSituCriterion(weight_dict=weight_dict)
 
     return model, criterion
