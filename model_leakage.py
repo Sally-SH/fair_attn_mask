@@ -68,7 +68,7 @@ def generate_image_feature(split, image_features_path, data_loader, encoder):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--saved_dir', default='./vanila',
+    parser.add_argument('--saved_dir', default='./vanila/checkpotints.pth',
                         help='path where saved model is')
     parser.add_argument('--num_rounds', type=int,
             default = 2)
@@ -176,7 +176,7 @@ def main():
     #Build the encoder from adv model
     encoder, criterion = build_model(args)
     encoder.to(device)
-    model_path = os.path.join(args.saved_dir,'checkpoint.pth')
+    model_path = args.saved_dir
     
     if os.path.isfile(model_path):
         print("=> loading encoder from '{}'".format(model_path))
@@ -198,7 +198,7 @@ def main():
     data_loader_test = DataLoader(test_data, batch_size = args.batch_size, \
             shuffle = False, num_workers = 4,pin_memory = True)
 
-    output_dir = os.path.join(args.saved_dir,args.output_dir)
+    output_dir = os.path.join(os.path.split(model_path)[0],args.output_dir)
     os.makedirs(output_dir,exist_ok=True)
     log_path = os.path.join(output_dir,"log.txt")
 
