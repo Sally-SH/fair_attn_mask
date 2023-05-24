@@ -441,12 +441,20 @@ def map_f1(outputs, targets):
 
     ap = []
     f1 = []
+
+    num_classes = targets.shape[1]
+    average_precisions = []
     
     for i in range(211):
         pred = verb_pred_logits[:,i]
         gt = targets[:,i]
         ap.append(average_precision_score(gt.cpu(), pred.cpu()))
         f1.append(f1_score(gt.cpu(), pred.cpu()))
+
+        pred_class = outputs[:, i]
+        avp = average_precision_score(gt.cpu(), pred_class.cpu())
+        average_precisions.append(avp)
+
     mask_ap = np.isnan(ap)
     mask_f1 = np.isnan(f1)
     ap = np.array(ap)
@@ -460,4 +468,8 @@ def map_f1(outputs, targets):
     mean_ap = sum(ap)/len(ap)
     f1score = sum(f1)/len(f1)
 
-    return mean_ap, f1score
+    task_f1_score = f1_score(targets.cpu(), verb_pred_logits.cpu(), average = 'macro')
+    mAP = sum(average_precisions)/num_classes
+
+    # return mean_ap, f1score
+    return mAP, task_f1_score
