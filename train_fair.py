@@ -108,6 +108,7 @@ def get_args_parser():
                      help='patch size')
     parser.add_argument('--mask_ratio', type=int, default=5,
                      help='Percentage to mask the image')
+    parser.add_argument('--fair', default=True)
 
     # Distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,

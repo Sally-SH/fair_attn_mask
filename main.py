@@ -84,7 +84,7 @@ def get_args_parser():
 
     # Etc...
     parser.add_argument('--resume',action='store_true')
-    parser.add_argument('--test', default=False, action='store_true')
+    parser.add_argument('--test', action='store_true')
     parser.add_argument('--inference', default=False)
     parser.add_argument('--output_dir', default='',
                         help='path where to save, empty for no saving')
@@ -97,7 +97,7 @@ def get_args_parser():
     parser.add_argument('--num_workers', default=4, type=int)
     parser.add_argument('--saved_model', default='vanila/checkpoint.pth',
                         help='path where saved model is')
-    parser.add_argument('--fair', default=False)
+    parser.add_argument('--fair', action='store_true')
 
     # Distributed training parameters
     parser.add_argument('--world_size', default=1, type=int,

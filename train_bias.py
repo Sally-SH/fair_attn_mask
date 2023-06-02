@@ -17,8 +17,8 @@ import torch.optim as optim
 from pytorch_transformers.optimization import WarmupCosineSchedule
 
 from data_loader import ImSituVerbGender
-from model import VisionTransformer
-from logger import Logger
+from models.bias_only_model import VisionTransformer
+# from logger import Logger
 
 verb_id_map = pickle.load(open('./data/verb_id.map', 'rb'))
 verb2id = verb_id_map['verb2id']
@@ -62,12 +62,10 @@ def main():
     parser.add_argument('--edges', action='store_true')
 
     parser.add_argument('--resume',action='store_true')
-    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--learning_rate', type=float, default=3e-2)
     parser.add_argument('--finetune', action='store_true')
     parser.add_argument('--num_epochs', type=int, default=20)
-    parser.add_argument('--batch_size', type=int, default=16)
-    parser.add_argument('--lr_drop', default=100, type=int)
-    parser.add_argument('--weight_decay', default=1e-4, type=float)
+    parser.add_argument('--batch_size', type=int, default=32)
 
     parser.add_argument('--crop_size', type=int, default=224)
     parser.add_argument('--image_size', type=int, default=256)
@@ -80,7 +78,7 @@ def main():
     torch.cuda.manual_seed(args.seed)
 
     # create model save directory
-    args.save_dir = os.path.join('./models', args.save_dir)
+    args.save_dir = os.path.join('./checkpoints', args.save_dir)
     # if os.path.exists(args.save_dir) and not args.resume:
     #     print('Path {} exists! and not resuming'.format(args.save_dir))
     #     return
@@ -92,8 +90,8 @@ def main():
     val_log_dir = os.path.join(args.log_dir, 'val')
     if not os.path.exists(train_log_dir): os.makedirs(train_log_dir)
     if not os.path.exists(val_log_dir): os.makedirs(val_log_dir)
-    train_logger = Logger(train_log_dir)
-    val_logger = Logger(val_log_dir)
+    # train_logger = Logger(train_log_dir)
+    # val_logger = Logger(val_log_dir)
 
     #save all hyper-parameters for training
     with open(os.path.join(args.log_dir, "arguments.txt"), "a") as f:
@@ -131,22 +129,20 @@ def main():
     # build the models
     channel = 3
     patch_size = 16
-    d_model = 512
-    n_layers = 6
+    d_model = 64
+    n_layers = 12
     n_head = 8
-    ff_dim = 2048
-    dropout_rate = 0.15
-    output_dim = args.num_verb
-    img_size = (val_loader.dataset[0][0].shape[0], val_loader.dataset[0][0].shape[1])
+    ff_dim = 256
+    dropout_rate = 0.1
+    output_dim = 2
+    img_size = (val_loader.dataset[0][0].shape[1], val_loader.dataset[0][0].shape[2])
+    print("img_size {}",img_size)
     model = VisionTransformer(channel, img_size, patch_size, d_model, n_layers, n_head, ff_dim, dropout_rate, output_dim)
     model = model.cuda()
 
     # build optimizer and scheduler
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate,
-                                  weight_decay=args.weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.lr_drop)
-    # optimizer = optim.SGD(model.parameters(),args.learning_rate,0.9)
-    # scheduler = WarmupCosineSchedule(optimizer, args.num_epochs // 5, args.num_epochs)
+    optimizer = optim.SGD(model.parameters(),args.learning_rate,0.9)
+    scheduler = WarmupCosineSchedule(optimizer, args.num_epochs // 5, args.num_epochs)
     criterion = nn.CrossEntropyLoss(reduction='elementwise_mean').cuda()
 
     best_performance = 0
@@ -162,20 +158,17 @@ def main():
             print("=> no checkpoint found at '{}'".format(args.save_dir))
 
     print('before training, evaluate the model')
-    test(args, 0, model, criterion, val_loader, val_logger, logging=False)
+    test(args, 0, model, criterion, val_loader)
 
     for epoch in range(args.start_epoch, args.num_epochs + 1):
-        train(args, epoch, model, criterion, train_loader, optimizer, scheduler,\
-                train_logger, logging = True)
-        current_performance = test(args, epoch, model, criterion, val_loader, \
-                val_logger, logging = True)
+        train(args, epoch, model, criterion, train_loader, optimizer, scheduler)
+        current_performance = test(args, epoch, model, criterion, val_loader)
         is_best = current_performance > best_performance
         best_performance = max(current_performance, best_performance)
         model_state = {
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
-            'best_performance': best_performance,
-            'scheduler': scheduler.state_dict()}
+            'best_performance': best_performance}
         save_checkpoint(args, model_state, is_best, os.path.join(args.save_dir, \
                 'checkpoint.pth.tar'))
 
@@ -192,8 +185,7 @@ def save_checkpoint(args, state, is_best, filename):
         shutil.copyfile(filename, os.path.join(args.save_dir, 'model_best.pth.tar'))
 
 
-def train(args, epoch, model, criterion, train_loader, optimizer, scheduler,\
-    train_logger, logging=True):
+def train(args, epoch, model, criterion, train_loader, optimizer, scheduler):
     model.train()
     nProcessed = 0
     nTrain = len(train_loader.dataset) # number of images
@@ -206,18 +198,17 @@ def train(args, epoch, model, criterion, train_loader, optimizer, scheduler,\
         # set mini-batch dataset
         images = images.cuda()
         genders = genders.cuda()
-        targets = targets.cuda()
 
         # forward, Backward and Optimize
         preds, _ = model(images)
 
         # compute loss and add softmax to preds (crossentropy loss integrates softmax)
-        loss = criterion(preds, targets.max(1, keepdim=False)[1])
+        loss = criterion(preds, genders.max(1, keepdim=False)[1])
         loss_logger.update(loss.item())
 
         preds = np.argmax(F.softmax(preds, dim=1).cpu().detach().numpy(), axis=1)
         preds_list += preds.tolist()
-        truth_list += targets.cpu().max(1, keepdim=False)[1].numpy().tolist()
+        truth_list += genders.cpu().max(1, keepdim=False)[1].numpy().tolist()
 
         if batch_idx > 0 and len(preds_list) > 0:
             total_genders = torch.cat((total_genders, genders.cpu()), 0)
@@ -239,15 +230,10 @@ def train(args, epoch, model, criterion, train_loader, optimizer, scheduler,\
 
     scheduler.step()
 
-    if logging:
-        train_logger.scalar_summary('loss', loss_logger.avg, epoch)
-        train_logger.scalar_summary('acc', acc, epoch)
-        train_logger.scalar_summary('lr', scheduler.get_last_lr()[0], epoch)
-
     print('man size: {} woman size: {}'.format(len(man_idx), len(woman_idx)))
     print('Train epoch  : {}, acc: {:.2f}'.format(epoch, acc))
 
-def test(args, epoch, model, criterion, val_loader, val_logger, logging=True):
+def test(args, epoch, model, criterion, val_loader):
 
     # set the eval mode
     model.eval()
@@ -263,25 +249,20 @@ def test(args, epoch, model, criterion, val_loader, val_logger, logging=True):
         # Set mini-batch dataset
         images = images.cuda()
         genders = genders.cuda()
-        targets = targets.cuda()
 
         # Forward, Backward and Optimize
         preds, _ = model(images)
 
-        loss = criterion(preds, targets.max(1, keepdim=False)[1])
+        loss = criterion(preds, genders.max(1, keepdim=False)[1])
         loss_logger.update(loss.item())
 
         preds = np.argmax(F.softmax(preds, dim=1).cpu().detach().numpy(), axis=1)
         preds_list += preds.tolist()
-        truth_list += targets.cpu().max(1, keepdim=False)[1].numpy().tolist()
+        truth_list += genders.cpu().max(1, keepdim=False)[1].numpy().tolist()
         if batch_idx > 0 and len(preds_list) > 0:
             total_genders = torch.cat((total_genders, genders.cpu()), 0)
         else:
             total_genders = genders.cpu()
-
-        # print("pred max {}".format(preds))
-        # print("targeta {}".format(targets.cpu().max(1, keepdim=False)[1].numpy().tolist()))
-
 
         # Print log info
         nProcessed += len(images)
@@ -291,11 +272,6 @@ def test(args, epoch, model, criterion, val_loader, val_logger, logging=True):
     man_idx = total_genders[:, 0].nonzero().squeeze()
     woman_idx = total_genders[:, 1].nonzero().squeeze()
     acc = accuracy_score(truth_list, preds_list)
-
-    if logging:
-        val_logger.scalar_summary('loss', loss_logger.avg, epoch)
-        val_logger.scalar_summary('acc', acc, epoch)
-
 
     print('man size: {} woman size: {}'.format(len(man_idx), len(woman_idx)))
     print('Val epoch  : {}, acc: {:.2f}'.format(epoch, acc))

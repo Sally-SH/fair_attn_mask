@@ -133,10 +133,6 @@ class ImSituCriterion(nn.Module):
         out['verb_acc_top1'] = verb_acc_topk[0]
         out['verb_acc_top5'] = verb_acc_topk[1]
         out['mean_acc'] = torch.stack([v for k, v in out.items() if 'verb_acc' in k]).mean()
-
-        mean_ap, f1score = map_f1(img_outputs,targets)
-        out['mean_ap'] = mean_ap
-        out['f1_score'] = f1score
         return out
     
 class VanillaImSituCriterion(nn.Module):
@@ -180,10 +176,6 @@ class VanillaImSituCriterion(nn.Module):
         out['verb_acc_top1'] = verb_acc_topk[0]
         out['verb_acc_top5'] = verb_acc_topk[1]
         out['mean_acc'] = torch.stack([v for k, v in out.items() if 'verb_acc' in k]).mean()
-
-        # mean_ap, f1score = map_f1(img_outputs,targets)
-        # out['mean_ap'] = mean_ap
-        # out['f1_score'] = f1score
         return out
 
 

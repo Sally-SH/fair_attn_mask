@@ -72,8 +72,15 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
 
     # gather the stats from all processes
+    total_preds = torch.cat(total_preds, dim=0)
+    total_targets = torch.cat(total_targets, dim=0)
+    mean_ap, f1score = map_f1(total_preds,total_targets)
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
+    print("====================================")
+    print("mAP : {}\tF1 Score : {}\n".format(mean_ap, f1score))
+    print("====================================")
+
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 

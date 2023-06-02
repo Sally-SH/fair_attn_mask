@@ -22,30 +22,30 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import f1_score
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm as tqdm
-import copy
 
 from data_loader import ImSituVerbGender
-from models.classifier import GenderClassifier
+from models.classifier  import GenderClassifier
 
 verb_id_map = pickle.load(open('./data/verb_id.map', 'rb'))
 verb2id = verb_id_map['verb2id']
 id2verb = verb_id_map['id2verb']
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output_dir', type=str,
-            default='./natural_leakage',
+    parser.add_argument('--save_dir', type=str,
+            default='./dataset_leakage',
             help='path for saving checkpoints')
 
     parser.add_argument('--num_rounds', type=int,
-                default = 2)
+            default = 2)
 
     parser.add_argument('--balanced', action='store_true')
     parser.add_argument('--ratio', type=str,
             default = '0')
 
     parser.add_argument('--num_verb', type=int,
-                default = 211)
+            default = 211)
 
     parser.add_argument('--annotation_dir', type=str,
             default='./data',
@@ -55,7 +55,9 @@ def main():
             help='image directory')
 
     parser.add_argument('--hid_size', type=int,
-                default = 300)
+            default = 300)
+
+    parser.add_argument('--no_image', action='store_true')
 
     parser.add_argument('--num_epochs', type=int, default=100)
     parser.add_argument('--learning_rate', type=float, default=0.00005)
@@ -78,8 +80,6 @@ def main():
     args.grayscale = False
     args.edges = False
 
-    args.output_dir = os.path.join(args.output_dir, args.ratio)
-    if not os.path.exists(args.output_dir): os.makedirs(args.output_dir)
 
     normalize = transforms.Normalize(mean = [0.485, 0.456, 0.406],
         std = [0.229, 0.224, 0.225])
@@ -96,55 +96,59 @@ def main():
         transforms.ToTensor(),
         normalize])
 
-    acc_f1 = dict()
-
-    for round_id in range(args.num_rounds):
-
-        print('round id is: {}'.format(round_id))
-
-        train_data_ori = ImSituVerbGender(args, annotation_dir = args.annotation_dir, \
-                image_dir = args.image_dir,split = 'train', transform = train_transform)
-
-        val_data_ori = ImSituVerbGender(args, annotation_dir = args.annotation_dir, \
-                image_dir = args.image_dir,split = 'val', transform = test_transform)
-
-        test_data_ori = ImSituVerbGender(args, annotation_dir = args.annotation_dir, \
-                image_dir = args.image_dir,split = 'test', transform = test_transform)
-
-        acc_list = list()
-        f1_list = list()
-
-        #for p in [0.08, 0.0, 0.0001, 0.0003, 0.0005, 0.0007, 0.001, 0.0012, 0.0015, 0.0018, 0.002, 0.0025, 0.003, 0.0035, 0.004, 0.0045, 0.005, 0.006, \
-        #0.0075, 0.009, 0.011, 0.013, 0.015, 0.017, 0.019, 0.021, 0.025, 0.04, 0.055, 0.07]:
-        for p in [0.08, 0.1, 0.12, 0.13, 0.15]:
-            val_p = copy.deepcopy(val_data_ori.verb_ann)
-            for i in range(len(val_data_ori)):
-                if random.random() < p:
-                    gt_id = np.argmax(val_p[i, :])
-                    val_p[i, gt_id] = 0
-                    val_p[i, int(random.random()*len(verb2id))] = 1
-
-            f1_list.append(f1_score(val_data_ori.verb_ann, val_p, average = 'macro'))
-
-            acc_list.append(compute_acc(p, args, train_data_ori, val_data_ori, test_data_ori))
-
-        print('f1 scores: ', f1_list)
-        print('accuracy: ', acc_list)
-
-        acc_f1[round_id]= {'f1_scores': f1_list, 'accuracy': acc_list}
-
-    print(acc_f1)
-    all_f1s = []
-    all_acc = []
+    acc_list = []
     for i in range(args.num_rounds):
-        all_f1s += acc_f1[i]['f1_scores']
-        all_acc += acc_f1[i]['accuracy']
-    print(all_f1s)
-    print(all_acc)
 
+        train_data = ImSituVerbGender(args, annotation_dir = args.annotation_dir, \
+                image_dir = args.image_dir,split = 'train', transform = train_transform)
+        train_loader = torch.utils.data.DataLoader(train_data, batch_size = args.batch_size,
+                    shuffle = True, num_workers = 6, pin_memory = True)
 
-def train_genderclassifier(model, num_epochs, optimizer, train_loader, test_loader, \
-    model_output_dir, print_every):
+        # Data samplersi for val set.
+        val_data = ImSituVerbGender(args, annotation_dir = args.annotation_dir, \
+                image_dir = args.image_dir,split = 'val', transform = test_transform)
+        val_loader = torch.utils.data.DataLoader(val_data, batch_size = args.batch_size, \
+                shuffle = False, num_workers = 4,pin_memory = True)
+
+        # Data samplers for test set.
+        test_data = ImSituVerbGender(args, annotation_dir = args.annotation_dir, \
+                image_dir = args.image_dir,split = 'test', transform = test_transform)
+        test_loader = torch.utils.data.DataLoader(test_data, batch_size = args.batch_size, \
+                shuffle = False, num_workers = 4,pin_memory = True)
+
+        # initialize gender classifier
+        model = GenderClassifier(args, args.num_verb)
+        model = model.cuda()
+
+        optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay = 1e-5)
+
+        if args.balanced:
+            model_save_dir = os.path.join(args.save_dir, 'ratio_'+args.ratio)
+        else:
+            model_save_dir = os.path.join(args.save_dir, 'origin')
+
+        if not os.path.exists(model_save_dir):
+            os.makedirs(model_save_dir)
+
+        train_genderclassifier(model, args.num_epochs, optimizer, train_loader, val_loader, \
+            model_save_dir, args.print_every)
+
+        model.load_state_dict(torch.load(model_save_dir+'/model_best.pth.tar')['state_dict'])
+        loss, acc = epoch_pass(-1, test_loader, model, None, False, print_every=500)
+        loss, val_acc = epoch_pass(-1, val_loader, model, None, False, print_every=500)
+        acc = 0.5 + abs(acc - 0.5)
+        val_acc = 0.5 + abs(val_acc - 0.5)
+        print('round {} acc on test set: {}, val acc: {}'.format(i, acc*100, val_acc*100))
+        acc_list.append(acc)
+
+    print(acc_list)
+    acc_ = np.array(acc_list)
+    mean_acc = np.mean(acc_)
+    std_acc = np.std(acc_)
+    print(mean_acc), std_acc
+
+def train_genderclassifier(model, num_epochs, optimizer, train_loader, test_loader, model_save_dir, \
+    print_every):
 
     train_loss_arr = list()
     dev_loss_arr = list()
@@ -160,22 +164,23 @@ def train_genderclassifier(model, num_epochs, optimizer, train_loader, test_load
         train_loss_arr.append(train_loss)
         train_acc_arr.append(train_acc)
         if epoch % 10 == 0:
-            print('train, {0}, train loss: {1:.2f}, train acc: {2:.2f}'.format(epoch, \
-                train_loss*100, train_acc*100))
+            print('train, {0}, train loss: {1:.2f}, train acc: {2:.2f}'.format(epoch, train_loss*100, \
+                train_acc*100))
 
         # dev
         val_loss, val_acc = epoch_pass(epoch, test_loader, model, optimizer, False, print_every)
         dev_loss_arr.append(val_loss)
         val_acc_arr.append(val_acc)
         if epoch % 10 == 0:
-            print('val, {0}, val loss: {1:.2f}, val acc: {2:.2f}'.format(epoch, \
-                val_loss*100, val_acc *100))
+            print('val, {0}, val loss: {1:.2f}, val acc: {2:.2f}'.format(epoch, val_loss*100, \
+                val_acc *100))
 
         if val_acc > best_score:
             best_score = val_acc
             best_model_epoch = epoch
             torch.save({'epoch': epoch, 'state_dict': model.state_dict()}, \
-                model_output_dir + '/model_best.pth.tar')
+                model_save_dir + '/model_best.pth.tar')
+
         if epoch % 10 == 0:
             print('current best dev score: {:.2f}'.format(best_score*100))
 
@@ -186,23 +191,29 @@ def epoch_pass(epoch, data_loader, model, optimizer, training, print_every=500):
     preds = list()
     truth = list()
 
+    debug_targets = list()
+
+
     if training:
         model.train()
     else:
         model.eval()
 
     t = tqdm(data_loader)
-    for ind, (_, targets, genders, image_ids) in enumerate(t):
+
+    for ind, (_, targets, genders, image_ids) in enumerate(t): # images are not provided
 
         targets = targets.cuda()
         genders = genders.cuda()
-        predictions = model(targets)
 
+        predictions = model(targets)
         loss = F.cross_entropy(predictions, genders[:, 1], reduction='mean')
 
         predictions = np.argmax(F.softmax(predictions, dim=1).cpu().detach().numpy(), axis=1)
         preds += predictions.tolist()
         truth += genders.cpu().max(1, keepdim=False)[1].numpy().tolist()
+
+        debug_targets += torch.max(targets, 1)[1].tolist()
 
         if training:
             optimizer.zero_grad()
@@ -212,53 +223,12 @@ def epoch_pass(epoch, data_loader, model, optimizer, training, print_every=500):
         t_loss += loss.item()
         n_processed += len(genders)
 
+        if (ind + 1) % print_every == 0:
+            print('{0}: task loss: {1:4f}'.format(ind + 1, t_loss / n_processed))
+
     acc = accuracy_score(truth, preds)
 
     return t_loss / n_processed, acc
-
-def compute_acc(p, args, train_data_ori, val_data_ori, test_data_ori):
-    train_data = copy.deepcopy(train_data_ori)
-    val_data = copy.deepcopy(val_data_ori)
-    test_data = copy.deepcopy(test_data_ori)
-
-    # randomly flip groundtruth with probability p
-    for i in range(len(train_data)):
-        for j in range(len(verb2id)):
-            if random.random() < p:
-                train_data.verb_ann[i, j] = 1 - train_data.verb_ann[i, j]
-
-    for i in range(len(val_data)):
-        for j in range(len(verb2id)):
-            if random.random() < p:
-                val_data.verb_ann[i, j] = 1 - val_data.verb_ann[i, j]
-
-    for i in range(len(test_data)):
-        for j in range(len(verb2id)):
-            if random.random() < p:
-                test_data.verb_ann[i, j] = 1 - test_data.verb_ann[i, j]
-
-    # Data samplers
-    train_loader = torch.utils.data.DataLoader(train_data, batch_size = args.batch_size,
-            shuffle = True, num_workers = 6, pin_memory = True)
-    val_loader = torch.utils.data.DataLoader(val_data, batch_size = args.batch_size, \
-            shuffle = False, num_workers = 4,pin_memory = True)
-    test_loader = torch.utils.data.DataLoader(test_data, batch_size = args.batch_size, \
-            shuffle = False, num_workers = 4,pin_memory = True)
-
-    model = GenderClassifier(args, args.num_verb)
-    model = model.cuda()
-
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate, weight_decay = 1e-5)
-
-    model_output_dir = args.output_dir
-    train_genderclassifier(model, args.num_epochs, optimizer, train_loader, val_loader, model_output_dir, args.print_every)
-
-    model.load_state_dict(torch.load(model_output_dir+'/model_best.pth.tar')['state_dict'])
-    loss, acc = epoch_pass(0, test_loader, model, None, False, print_every=500)
-    acc = 0.5 + abs(acc - 0.5)
-    print(' when p is {}, gender acc on test set: {}'.format(p, acc*100))
-
-    return acc
 
 if __name__ == '__main__':
     main()

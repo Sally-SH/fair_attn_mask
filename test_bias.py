@@ -15,7 +15,7 @@ import torchvision.transforms as transforms
 
 
 from data_loader import ImSituVerbGender
-from model import VisionTransformer
+from models.bias_only_model import VisionTransformer
 
 import os
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"

@@ -68,7 +68,7 @@ def generate_image_feature(split, image_features_path, data_loader, encoder):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--saved_dir', default='./vanila/checkpotints.pth',
+    parser.add_argument('--saved_dir', default='.checkpoints/vanila/checkpotints.pth',
                         help='path where saved model is')
     parser.add_argument('--num_rounds', type=int,
             default = 2)
@@ -143,9 +143,8 @@ def main():
                         help='device to use for training / testing')
     parser.add_argument('--output_dir', default='leakage',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--test', default=False, action='store_true')
     parser.add_argument('--inference', default=True)
-    parser.add_argument('--fair', default=False)
+    parser.add_argument('--fair', action='store_true')
 
     
     # Distributed training parameters
@@ -185,6 +184,7 @@ def main():
         print("=> loaded checkpoint (epoch {})".format(checkpoint['epoch']))
     else:
         print("=> no checkpoint found at '{}'".format(model_path))
+        return
 
     encoder.eval()
 
