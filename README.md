@@ -2,7 +2,7 @@
 
 ## Requirements
 - Python 3.7
-- Pytorch 0.4+
+- Pytorch 1.12+
 ```
 pip install -r requirements.txt
 ```
@@ -19,60 +19,47 @@ pip install -r requirements.txt
   │   └── ...
   └── ...
   ```
-* CelebA
-  1. To download the CelebA dataset
-  ```
-  bash download.sh
-  ```
-  2. data dir
-  ```
-  .
-  ├── data_celeba                       # data dir
-  │   ├── images             
-  │   │   ├── 000001.jpg                # CelebA data (image_dir)
-  │   │   └── ...
-  │   └── list_attr_celeba.txt          # (annotation_dir)
-  └── ...
-  ```
-  * CelebA attributes
-  ```
-  '5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips',
-  'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby',
-  'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones', 'Male',
-  'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard', 'Oval_Face', 'Pale_Skin', 'Pointy_Nose',
-  'Receding_Hairline', 'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair',
-  'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young'
-  ```
 
 ## Train
 * Bias-only
   ```
-  python train_baias.py --save_dir <path/to/save/model> --log_dir <path/to/log> --dataset <'imsitu' or 'celeba'>
+  python train_baias.py --save_dir <path/to/save/model>
   ```
 * Fair
   ```
-  python train_fair.py --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model> -- dataset <'imsitu' or 'celeba'>
+  python train_fair.py --ouput_dir <path/to/save/model> --mask_dir <path/to/trained/bias/model>
   ```
 * Vanilla
   ```
-  python -m torch.distributed.launch --nproc_per_node=2 --use_env main.py --output_dir <path/to/save/model>
+  python main.py --output_dir <path/to/save/model>
   ```
 
 ## Test
 * Bias-only
   ```
-  python test_bias.py --save_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
+  python test_bias.py --save_dir <path/to/trained/bias/model>
   ```
 ## Option
 * Mask mode
   * pixel
   * patch
   ```
-  python train_fair.py --mask_mode pixel --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
-  python test_bias.py --mask_mode patch --save_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
+  python train_fair.py --mask_mode pixel --output_dir <path/to/save/model> --mask_dir <path/to/trained/bias/model>
+  python test_bias.py --mask_mode patch --save_dir <path/to/trained/bias/model>
   ```
 * Mask ratio
   ```
-  python train_fair.py --mask_ratio 30 --save_dir <path/to/save/model> --log_dir <path/to/log> --mask_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
-  python test_bias.py --mask_ratio 10 --save_dir <path/to/trained/bias/model> --dataset <'imsitu' or 'celeba'>
+  python train_fair.py --mask_ratio 30 --output_dir <path/to/save/model> --mask_dir <path/to/trained/bias/model>
+  python test_bias.py --mask_ratio 10 --save_dir <path/to/trained/bias/model>
   ```
+  
+ ## Leakage
+ * Dataset leakage $\lambda_D(a)$
+   ```
+   python natural_leakage.py --saved_dir <path/to/checkpoint>
+   ```
+ * Model leakage $\lambda_M(a)$
+   ```
+   python model_leakage.py --saved_dir <path/to/checkpoint>
+   ```
+ 
